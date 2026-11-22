@@ -1,4 +1,4 @@
-# 📻 Zegar DCF77 + S-Meter & Analizator Ramki (v4)
+# Zegar DCF77 + S-Meter & Analizator Ramki (v4)
 
 **Autor:** SQ1KSM  
 **Platforma:** Seeeduino XIAO SAMD21 (ARM Cortex-M0+ 48 MHz)  
@@ -8,7 +8,7 @@ Zaawansowany zegar wzorcowy synchronizowany drogą radiową z nadajnikiem długo
 
 ---
 
-## ✨ Główne funkcje (v4)
+## Główne funkcje (v4)
 
 * **Odbiór na przerwaniach sprzętowych (`attachInterrupt`):** Zbocza sygnału DCF77 mierzone są z dokładnością do 1 ms niezależnie od odświeżania wyświetlacza OLED i szybkości kręcenia enkoderem.
 * **Potrójna kontrola parzystości (P1, P2, P3) + bit startu (S):** Każda 59-bitowa ramka jest weryfikowana matematycznie przed aktualizacją czasu — zakłócenia nigdy nie przekłamią godziny ani daty.
@@ -24,7 +24,7 @@ Zaawansowany zegar wzorcowy synchronizowany drogą radiową z nadajnikiem długo
 
 ---
 
-## 🛠️ Lista potrzebnych elementów
+## Lista potrzebnych elementów
 
 1. **Mikrokontroler:** Seeeduino XIAO SAMD21 (lub kompatybilny z rdzeniem Arduino SAMD).
 2. **Odbiornik DCF77 (77,5 kHz):** Moduł z anteną ferrytową (np. z demontażu zegara ściennego/stacji pogodowej zasilanej z 2 baterii 3 V lub gotowy moduł 3,3 V).
@@ -57,7 +57,7 @@ Zaawansowany zegar wzorcowy synchronizowany drogą radiową z nadajnikiem długo
 
 ---
 
-## 🧲 Filtrowanie zakłóceń i ustawienie anteny
+## Filtrowanie zakłóceń i ustawienie anteny
 
 Przetwornice podbijające napięcie w ekranach OLED (charge pump) oraz w powerbankach generują silne harmoniczne w okolicach pasma 77,5 kHz. Aby uzyskać **100% jakości sygnału przy cały czas włączonym ekranie**:
 
@@ -68,7 +68,7 @@ Przetwornice podbijające napięcie w ekranach OLED (charge pump) oraz w powerba
 
 ---
 
-## 💻 Wymagane biblioteki (Arduino IDE)
+## Wymagane biblioteki (Arduino IDE)
 
 * **U8g2** autorstwa Olivera Krausa (do obsługi wyświetlacza SH1106 I2C).
 * Rdzeń płytki: **Seeed SAMD Boards** (`Seeeduino XIAO`).
@@ -85,7 +85,7 @@ CZAS DCF77: 22:14 CET
 
 ---
 
-## 📜 Licencja
+##  Licencja
 
 Projekt udostępniony do użytku własnego i edukacyjnego.  
 **73 de SQ1KSM!**
