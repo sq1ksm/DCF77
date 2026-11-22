@@ -1,4 +1,4 @@
-# 📻 Zegar Atomowy DCF77 + S-Meter & Analizator Ramki (v4)
+# 📻 Zegar DCF77 + S-Meter & Analizator Ramki (v4)
 
 **Autor:** SQ1KSM  
 **Platforma:** Seeeduino XIAO SAMD21 (ARM Cortex-M0+ 48 MHz)  
