@@ -122,7 +122,7 @@ void setup() {                        // Inicjalizacja sprzętu i zmiennych po s
   weatherBitsStr = (char*)malloc(20);
   txtBuf = (char*)malloc(40);
 
-  if (!bitsBuf || !frameBuf || !sigWindow || !weatherBitsStr || !txtBuf) {
+  if (!bitsBuf || !frameBuf || !sigWindow || !weatherBitsStr || !txtBuf) { // Weryfikacja poprawnej alokacji RAM.
     Serial.println("BLAD: Brak pamieci RAM (malloc)!");
     while (1) delay(1000);
   }
@@ -136,7 +136,7 @@ void setup() {                        // Inicjalizacja sprzętu i zmiennych po s
   lastEncA = digitalRead(ENC_A);
 
   u8g2.begin();                       // Inicjalizacja wyświetlacza OLED SH1106.
-  u8g2.setContrast(30);               // Ustawienie umiarkowanego kontrastu (niższy pobór prądu).
+  u8g2.setContrast(40);               // Ustawienie umiarkowanego kontrastu (niższy pobór prądu).
 
   u8g2.clearBuffer();                 // Rysowanie ekranu powitalnego w ramce 128x64 px.
   u8g2.drawFrame(0, 0, 128, 64);
