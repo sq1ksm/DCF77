@@ -1,4 +1,4 @@
-#  Zegar DCF77 + S-Meter & Analizator Ramki (v4)
+#  Zegar DCF77 + S-Meter & Analizator Ramki (v5)
 
 **Autor:** SQ1KSM  
 **Platforma:** Seeeduino XIAO SAMD21 (ARM Cortex-M0+ 48 MHz)  
@@ -8,7 +8,7 @@ Zaawansowany zegar wzorcowy synchronizowany drogą radiową z nadajnikiem długo
 
 ---
 
-## Główne funkcje (v4)
+## Główne funkcje (v5)
 
 * **Odbiór na przerwaniach sprzętowych (`attachInterrupt`):** Zbocza sygnału DCF77 mierzone są z dokładnością do 1 ms niezależnie od odświeżania wyświetlacza OLED i szybkości kręcenia enkoderem.
 * **Potrójna kontrola parzystości (P1, P2, P3) + bit startu (S):** Każda 59-bitowa ramka jest weryfikowana matematycznie przed aktualizacją czasu — zakłócenia nigdy nie przekłamią godziny ani daty.
@@ -79,7 +79,7 @@ Przetwornice podbijające napięcie w ekranach OLED (charge pump) oraz w powerba
 
 Interfejs pracuje z prędkością **115200 bps** i wypisuje status startowy oraz każdą odebraną pełną minutę:
 ```text
-DCF77 START (Pin D7 - IRQ v4)
+DCF77 START (Pin D7 - IRQ v5)
 CZAS DCF77: 22:14 CET
 ```
 
