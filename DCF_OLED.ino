@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <U8g2lib.h>
+#include <string.h>
 
 #define DCF_PIN 7          // Pin wejściowy sygnału DCF77 (przerwanie sprzętowe).
 #define ENC_A 1            // Pin A enkodera obrotowego (zmiana widoku).
@@ -32,6 +33,7 @@ volatile unsigned long lastPulseMs = 0; // Czas trwania ostatniego impulsu w ms.
 volatile int lastPulseType = -1;      // Typ ostatniego impulsu (-1=brak, 0=bit0, 1=bit1, 2=szum).
 
 char* weatherBitsStr;                 // Łańcuch tekstowy bitów B1-B14 z ramki DCF77.
+char* txtBuf;                         // Wspólny bufor formatowania tekstu na OLED (zapobiega fragmentacji sterty).
 bool hasWeatherBits = false;          // Flaga: odebrano pierwszą poprawną ramkę z bitami B1-B16.
 int backupAntenna = 0;                // Bit 15: 0 = antena główna (GLW), 1 = antena rezerwowa (REZ).
 int dstAlert = 0;                     // Bit 16: 1 = zapowiedź zmiany czasu za najbliższą godzinę.
@@ -94,7 +96,7 @@ void dcfISR() {                       // Przerwanie sprzętowe na zmianę stanu 
     }
 
     if (last == LOW && len > 1700 && len < 2200) { // Brak impulsu przez ~1,8-2,0 s = 60. sekunda (koniec ramki).
-      if (bitPos >= 59 && !frameReady) {     // Zebrano pełne 59 bitów – skopiuj ramkę do dekodowania.
+      if (bitPos == 59 && !frameReady) {     // Zebrano dokładnie 59 bitów – skopiuj ramkę do dekodowania.
         for (int i = 0; i < 59; i++) {
           *(frameBuf + i) = *(bitsBuf + i);
         }
@@ -110,16 +112,23 @@ void dcfISR() {                       // Przerwanie sprzętowe na zmianę stanu 
 }
 
 void setup() {                        // Inicjalizacja sprzętu i zmiennych po starcie.
+  Serial.begin(115200);               // Uruchomienie diagnostyki USB Serial (115200 bps).
+  delay(1000);
+  Serial.println("DCF77 START (Pin D7 - IRQ v5)");
+
   bitsBuf = (volatile byte*)malloc(100);
   frameBuf = (volatile byte*)malloc(64);
   sigWindow = (volatile byte*)malloc(20);
   weatherBitsStr = (char*)malloc(20);
+  txtBuf = (char*)malloc(40);
+
+  if (!bitsBuf || !frameBuf || !sigWindow || !weatherBitsStr || !txtBuf) {
+    Serial.println("BLAD: Brak pamieci RAM (malloc)!");
+    while (1) delay(1000);
+  }
+
   strcpy(weatherBitsStr, "--------------");
   for (int i = 0; i < 20; i++) *(sigWindow + i) = 0;
-
-  Serial.begin(115200);               // Uruchomienie diagnostyki USB Serial (115200 bps).
-  delay(1000);
-  Serial.println("DCF77 START (Pin D7 - IRQ v4)");
 
   pinMode(DCF_PIN, INPUT);            // Konfiguracja wejścia odbiornika DCF77.
   pinMode(ENC_A, INPUT_PULLUP);       // Konfiguracja enkodera z wewnętrznym podciąganiem.
@@ -127,7 +136,7 @@ void setup() {                        // Inicjalizacja sprzętu i zmiennych po s
   lastEncA = digitalRead(ENC_A);
 
   u8g2.begin();                       // Inicjalizacja wyświetlacza OLED SH1106.
-  u8g2.setContrast(40);               // Ustawienie umiarkowanego kontrastu (niższy pobór prądu).
+  u8g2.setContrast(30);               // Ustawienie umiarkowanego kontrastu (niższy pobór prądu).
 
   u8g2.clearBuffer();                 // Rysowanie ekranu powitalnego w ramce 128x64 px.
   u8g2.drawFrame(0, 0, 128, 64);
@@ -137,8 +146,8 @@ void setup() {                        // Inicjalizacja sprzętu i zmiennych po s
   u8g2.drawStr((128 - wTitle) / 2, 33, "DCF77");
 
   u8g2.setFont(u8g2_font_6x10_tf);
-  int wAuthor = u8g2.getStrWidth("by SQ1KSM v4");
-  u8g2.drawStr((128 - wAuthor) / 2, 52, "by SQ1KSM v4");
+  int wAuthor = u8g2.getStrWidth("by SQ1KSM v5");
+  u8g2.drawStr((128 - wAuthor) / 2, 52, "by SQ1KSM v5");
 
   u8g2.sendBuffer();
   delay(3000);
@@ -196,11 +205,9 @@ void drawWaitingScreen() {            // Rysuje ekran oczekiwania na pierwszą s
     int rem = 59 - (int)bitPos;
     if (rem < 0) rem = 0;
 
-    char* line2 = (char*)malloc(20);
-    sprintf(line2, "DCF - %02ds", rem);
-    int w2 = u8g2.getStrWidth(line2);
-    u8g2.drawStr((128 - w2) / 2, 38, line2);
-    free(line2);
+    sprintf(txtBuf, "DCF - %02ds", rem);
+    int w2 = u8g2.getStrWidth(txtBuf);
+    u8g2.drawStr((128 - w2) / 2, 38, txtBuf);
 
     u8g2.drawFrame(2, 47, 124, 12);   // Ramka paska postępu.
     int barW = ((int)bitPos * 120) / 59;
@@ -307,25 +314,21 @@ void advanceDate() {                  // Przesuwa kalendarz o 1 dzień po półn
 }
 
 void drawCenteredClock(int h, int m, int s, int yPos) { // Rysuje wyśrodkowany zegar ze stałą szerokością sekund.
-  char* hmStr = (char*)malloc(10);
-  sprintf(hmStr, "%02d:%02d", h, m);
-  char* secStr = (char*)malloc(8);
-  sprintf(secStr, "%02d", s);
-
+  sprintf(txtBuf, "%02d:%02d", h, m);
   u8g2.setFont(u8g2_font_logisoso32_tn);
-  int hmW = u8g2.getStrWidth(hmStr);
+  int hmW = u8g2.getStrWidth(txtBuf);
+
   u8g2.setFont(u8g2_font_logisoso16_tn);
   int secW = u8g2.getStrWidth("00");  // Stała szerokość wzorca zapobiega drganiu cyfr.
 
   int startX = (128 - (hmW + 4 + secW)) / 2;
 
   u8g2.setFont(u8g2_font_logisoso32_tn);
-  u8g2.drawStr(startX, yPos, hmStr);
-  u8g2.setFont(u8g2_font_logisoso16_tn);
-  u8g2.drawStr(startX + hmW + 4, yPos, secStr);
+  u8g2.drawStr(startX, yPos, txtBuf);
 
-  free(hmStr);
-  free(secStr);
+  sprintf(txtBuf, "%02d", s);
+  u8g2.setFont(u8g2_font_logisoso16_tn);
+  u8g2.drawStr(startX + hmW + 4, yPos, txtBuf);
 }
 
 void updateOLED() {                   // Rysuje aktualnie wybrany ekran na wyświetlaczu OLED.
@@ -336,35 +339,27 @@ void updateOLED() {                   // Rysuje aktualnie wybrany ekran na wyśw
       drawWaitingScreen();
     } else {
       u8g2.setFont(u8g2_font_logisoso32_tn);
-      char* hmStr = (char*)malloc(10);
-      sprintf(hmStr, "%02d:%02d", curHour, curMinute);
-      u8g2.drawStr(0, 33, hmStr);
-      int hmWidth = u8g2.getStrWidth(hmStr);
-      free(hmStr);
+      sprintf(txtBuf, "%02d:%02d", curHour, curMinute);
+      u8g2.drawStr(0, 33, txtBuf);
+      int hmWidth = u8g2.getStrWidth(txtBuf);
 
       u8g2.setFont(u8g2_font_logisoso16_tn);
-      char* secStr = (char*)malloc(8);
-      sprintf(secStr, "%02d", curSecond);
-      u8g2.drawStr(hmWidth + 4, 33, secStr);
-      free(secStr);
+      sprintf(txtBuf, "%02d", curSecond);
+      u8g2.drawStr(hmWidth + 4, 33, txtBuf);
 
       u8g2.setFont(u8g2_font_6x10_tf);
-      char* dateStr = (char*)malloc(20);
-      sprintf(dateStr, "%02d.%02d.%04d %s", curDay, curMonth, curYear, getShortDay(curWeekday));
-      u8g2.drawStr(0, 49, dateStr);
-      free(dateStr);
+      sprintf(txtBuf, "%02d.%02d.%04d %s", curDay, curMonth, curYear, getShortDay(curWeekday));
+      u8g2.drawStr(0, 49, txtBuf);
 
       unsigned long minsAgo = (millis() - lastGoodSyncMs) / 65000UL; // Zapas 5s na przejście minuty.
-      char* bottomStr = (char*)malloc(32);
       if (minsAgo == 0) {
-        sprintf(bottomStr, "%s (UTC+%d) | Sync:OK", (utcOffset == 2) ? "CEST" : "CET", utcOffset);
+        sprintf(txtBuf, "%s (UTC+%d) | Sync:OK", (utcOffset == 2) ? "CEST" : "CET", utcOffset);
       } else if (minsAgo > 99) {
-        sprintf(bottomStr, "%s (UTC+%d) | Sync:XXm", (utcOffset == 2) ? "CEST" : "CET", utcOffset);
+        sprintf(txtBuf, "%s (UTC+%d) | Sync:XXm", (utcOffset == 2) ? "CEST" : "CET", utcOffset);
       } else {
-        sprintf(bottomStr, "%s (UTC+%d) | Sync:%02lum", (utcOffset == 2) ? "CEST" : "CET", utcOffset, minsAgo);
+        sprintf(txtBuf, "%s (UTC+%d) | Sync:%02lum", (utcOffset == 2) ? "CEST" : "CET", utcOffset, minsAgo);
       }
-      u8g2.drawStr(0, 62, bottomStr);
-      free(bottomStr);
+      u8g2.drawStr(0, 62, txtBuf);
     }
 
   } else if (displayMode == 1) {      // EKRAN 1: Czas UTC (ZULU) z belką w inwersji i czasem lokalnym na dole.
@@ -382,11 +377,9 @@ void updateOLED() {                   // Rysuje aktualnie wybrany ekran na wyśw
       drawCenteredClock(utcHour, curMinute, curSecond, 49);
 
       u8g2.setFont(u8g2_font_5x7_tf);
-      char* lokStr = (char*)malloc(28);
-      sprintf(lokStr, "Lokalny: %02d:%02d %s", curHour, curMinute, (utcOffset == 2) ? "CEST" : "CET");
-      int wBot = u8g2.getStrWidth(lokStr);
-      u8g2.drawStr((128 - wBot) / 2, 63, lokStr);
-      free(lokStr);
+      sprintf(txtBuf, "Lokalny: %02d:%02d %s", curHour, curMinute, (utcOffset == 2) ? "CEST" : "CET");
+      int wBot = u8g2.getStrWidth(txtBuf);
+      u8g2.drawStr((128 - wBot) / 2, 63, txtBuf);
     }
 
   } else if (displayMode == 2) {      // EKRAN 2: Duży zegar lokalny na cały ekran.
@@ -405,31 +398,25 @@ void updateOLED() {                   // Rysuje aktualnie wybrany ekran na wyśw
     for (int i = 0; i < cnt; i++) good += *(sigWindow + i);
     int quality = (cnt > 0) ? (good * 100) / cnt : 0;
 
-    char* qStr = (char*)malloc(24);
-    sprintf(qStr, "Jakosc: %d%% (%d/%d)", quality, good, cnt);
-    u8g2.drawStr(0, 25, qStr);
-    free(qStr);
+    sprintf(txtBuf, "Jakosc: %d%% (%d/%d)", quality, good, cnt);
+    u8g2.drawStr(0, 25, txtBuf);
 
     u8g2.drawFrame(0, 31, 124, 12);   // Ramka paska sygnału.
     int barW = (quality * 120) / 100;
     if (barW > 0) u8g2.drawBox(2, 33, barW, 8);
 
-    char* pStr = (char*)malloc(28);
     int pType = lastPulseType;
     unsigned long pMs = lastPulseMs;
-    if (pType == 0) sprintf(pStr, "Impuls: BIT 0 (%lums)", pMs);
-    else if (pType == 1) sprintf(pStr, "Impuls: BIT 1 (%lums)", pMs);
-    else if (pType == 2) sprintf(pStr, "Impuls: SZUM! (%lums)", pMs);
-    else sprintf(pStr, "Czekam na impuls...");
-    u8g2.drawStr(0, 58, pStr);
-    free(pStr);
+    if (pType == 0) sprintf(txtBuf, "Impuls: BIT 0 (%lums)", pMs);
+    else if (pType == 1) sprintf(txtBuf, "Impuls: BIT 1 (%lums)", pMs);
+    else if (pType == 2) sprintf(txtBuf, "Impuls: SZUM! (%lums)", pMs);
+    else sprintf(txtBuf, "Czekam na impuls...");
+    u8g2.drawStr(0, 58, txtBuf);
 
   } else if (displayMode == 4) {      // EKRAN 4: Analizator ramki DCF77 (licznik bitów, B1-14, Antena, DST).
     u8g2.setFont(u8g2_font_6x10_tf);
-    char* topStr = (char*)malloc(28);
-    sprintf(topStr, "RAMKA DCF77  %02d/59", (int)bitPos);
-    u8g2.drawStr(0, 10, topStr);
-    free(topStr);
+    sprintf(txtBuf, "RAMKA DCF77  %02d/59", (int)bitPos);
+    u8g2.drawStr(0, 10, txtBuf);
 
     if (!hasWeatherBits) {
       u8g2.drawStr(0, 30, "Oczekiwanie na ramke");
@@ -439,20 +426,14 @@ void updateOLED() {                   // Rysuje aktualnie wybrany ekran na wyśw
       int regionId = ((curHour % 3) * 20) + blockInHour;
       int part = (curMinute % 3) + 1;
 
-      char* rStr = (char*)malloc(28);
-      sprintf(rStr, "Blok: #%02d (cz. %d/3)", regionId, part);
-      u8g2.drawStr(0, 25, rStr);
-      free(rStr);
+      sprintf(txtBuf, "Blok: #%02d (cz. %d/3)", regionId, part);
+      u8g2.drawStr(0, 25, txtBuf);
 
-      char* bStr = (char*)malloc(28);
-      sprintf(bStr, "B1-14: %s", weatherBitsStr);
-      u8g2.drawStr(0, 40, bStr);
-      free(bStr);
+      sprintf(txtBuf, "B1-14: %s", weatherBitsStr);
+      u8g2.drawStr(0, 40, txtBuf);
 
-      char* stStr = (char*)malloc(28);
-      sprintf(stStr, "Ant:%s | DST:%s", backupAntenna ? "REZ" : "GLW", dstAlert ? "TAK" : "NIE");
-      u8g2.drawStr(0, 56, stStr);
-      free(stStr);
+      sprintf(txtBuf, "Ant:%s | DST:%s", backupAntenna ? "REZ" : "GLW", dstAlert ? "TAK" : "NIE");
+      u8g2.drawStr(0, 56, txtBuf);
     }
   }
 
