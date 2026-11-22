@@ -67,21 +67,27 @@ void dcfISR() {                       // Przerwanie sprzętowe na zmianę stanu 
     if (last == HIGH) {               // Zakończył się impuls HIGH – klasyfikacja szerokości bitu.
       lastPulseMs = len;
       if (len >= 70 && len <= 130) {         // Impuls ~100 ms = bit 0.
-        if (bitPos < 100) *(bitsBuf + bitPos++) = 0;
+        if (bitPos < 100) {
+          *(bitsBuf + bitPos) = 0;
+          bitPos = bitPos + 1;
+        }
         *(sigWindow + sigIdx) = 1;
         sigIdx = (sigIdx + 1) % 20;
-        if (sigCount < 20) sigCount++;
+        if (sigCount < 20) sigCount = sigCount + 1;
         lastPulseType = 0;
       } else if (len >= 140 && len <= 250) { // Impuls ~200 ms = bit 1.
-        if (bitPos < 100) *(bitsBuf + bitPos++) = 1;
+        if (bitPos < 100) {
+          *(bitsBuf + bitPos) = 1;
+          bitPos = bitPos + 1;
+        }
         *(sigWindow + sigIdx) = 1;
         sigIdx = (sigIdx + 1) % 20;
-        if (sigCount < 20) sigCount++;
+        if (sigCount < 20) sigCount = sigCount + 1;
         lastPulseType = 1;
       } else if (len >= 15) {                // Impuls poza widełkami (15-69 ms lub >250 ms) = zakłócenie.
         *(sigWindow + sigIdx) = 0;
         sigIdx = (sigIdx + 1) % 20;
-        if (sigCount < 20) sigCount++;
+        if (sigCount < 20) sigCount = sigCount + 1;
         lastPulseType = 2;
       }
       if (displayMode == 3 || displayMode == 4 || (!timeSynced && frameSynced)) needOledUpdate = true;
@@ -178,7 +184,7 @@ void checkEncoder() {                 // Obsługa enkodera obrotowego (przełąc
   lastEncA = currentA;
 }
 
-void drawWaitingScreen(const char* title) { // Rysuje ekran oczekiwania na pierwszą synchronizację.
+void drawWaitingScreen() {            // Rysuje ekran oczekiwania na pierwszą synchronizację.
   u8g2.setFont(u8g2_font_7x14B_tr);
   int w1 = u8g2.getStrWidth("OCZEKIWANIE NA");
   u8g2.drawStr((128 - w1) / 2, 18, "OCZEKIWANIE NA");
@@ -327,7 +333,7 @@ void updateOLED() {                   // Rysuje aktualnie wybrany ekran na wyśw
 
   if (displayMode == 0) {             // EKRAN 0: Główny zegar lokalny, data i status synchronizacji.
     if (!timeSynced) {
-      drawWaitingScreen("ZEGAR LOKALNY");
+      drawWaitingScreen();
     } else {
       u8g2.setFont(u8g2_font_logisoso32_tn);
       char* hmStr = (char*)malloc(10);
@@ -363,7 +369,7 @@ void updateOLED() {                   // Rysuje aktualnie wybrany ekran na wyśw
 
   } else if (displayMode == 1) {      // EKRAN 1: Czas UTC (ZULU) z belką w inwersji i czasem lokalnym na dole.
     if (!timeSynced) {
-      drawWaitingScreen("CZAS UTC");
+      drawWaitingScreen();
     } else {
       u8g2.drawBox(0, 0, 128, 13);    // Biały prostokąt tytułowy.
       u8g2.setDrawColor(0);           // Czarny tekst na białym tle.
@@ -385,7 +391,7 @@ void updateOLED() {                   // Rysuje aktualnie wybrany ekran na wyśw
 
   } else if (displayMode == 2) {      // EKRAN 2: Duży zegar lokalny na cały ekran.
     if (!timeSynced) {
-      drawWaitingScreen("ZEGAR DUZY");
+      drawWaitingScreen();
     } else {
       drawCenteredClock(curHour, curMinute, curSecond, 46);
     }
