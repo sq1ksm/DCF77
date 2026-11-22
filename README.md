@@ -68,14 +68,14 @@ Przetwornice podbijające napięcie w ekranach OLED (charge pump) oraz w powerba
 
 ---
 
-## 💻 Wymagane biblioteki (Arduino IDE)
+## Wymagane biblioteki (Arduino IDE)
 
 * **U8g2** autorstwa Olivera Krausa (do obsługi wyświetlacza SH1106 I2C).
 * Rdzeń płytki: **Seeed SAMD Boards** (`Seeeduino XIAO`).
 
 ---
 
-## 📡 Diagnostyka po porcie szeregowym (USB Serial)
+## Diagnostyka po porcie szeregowym (USB Serial)
 
 Interfejs pracuje z prędkością **115200 bps** i wypisuje status startowy oraz każdą odebraną pełną minutę:
 ```text
